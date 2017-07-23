@@ -2,7 +2,7 @@
 #include <cstring>
 #include <iostream>
 #include <unistd.h>
-#include "curl/curl.h"
+#include <curl/multi.h>
 
 using namespace std;
 
@@ -88,15 +88,23 @@ int main(int argc, char * argv[])
 
         while ((message = curl_multi_info_read(mh, &msgsLeft)))
         {
-            if (message->msg == CURLMSG_DONE)
+            CURL *eh = message->easy_handle;
+            curl_easy_getinfo(eh, CURLINFO_EFFECTIVE_URL, &url);
+            if (message->msg == CURLMSG_DONE && message->data.result == CURLE_OK)
             {
-                CURL *eh = message->easy_handle;
-                curl_easy_getinfo(eh, CURLINFO_EFFECTIVE_URL, &url);
                 curl_easy_getinfo(eh, CURLINFO_PRIVATE, &sizePtr);
                 cout << url << "\t" << *sizePtr << endl;
-                curl_multi_remove_handle(mh, eh);
-                curl_easy_cleanup(eh);
             }
+            else if (message->msg == CURLMSG_DONE)
+            {
+                cout << url << "\t" << "Error CURLCode " << message->data.result << endl;
+            }
+            else
+            {
+                cout << url << "\t" << "Error CURLMsg code " << message->msg << endl;
+            }
+            curl_multi_remove_handle(mh, eh);
+            curl_easy_cleanup(eh);
         }
     }
 
